@@ -43,6 +43,14 @@ void setMotorSpeed(int speed, uint slice, uint channel){
         gpio_put(MOTOR_IN4_PIN, 0);
         motorWasRunning = false;
     } else {
+        // Motor driver works like xor
+        // Table:
+        //  IN3     | IN4   | Motor direction
+        // ----------------------------------
+        //  0       | 0     | Off
+        //  1       | 0     | Forward
+        //  0       | 1     | Backward
+        //  1       | 1     | Off
         if (speed > 0){
             gpio_put(MOTOR_IN3_PIN, 1);
             gpio_put(MOTOR_IN4_PIN, 0);
@@ -52,14 +60,21 @@ void setMotorSpeed(int speed, uint slice, uint channel){
         }
         //This PWM slice is configured to have a value between 1 and 1000
         //Send a short pulse to wake controller
-        if (! motorWasRunning){
+        /*if (! motorWasRunning){
             pwm_set_chan_level(slice, channel, 1000);
             sleep_us(1);
             motorWasRunning = true;
-        }
+        }*/
         pwm_set_chan_level(slice, channel, abs(speed)*(1000/511));
     }
-    
+}
+// Turn servo based on value between -511 and 511
+void turnServo(int value, uint slice, uint channel){
+    // PWM slice is configured to have an value between 500 and 2500
+    // 1500 is middle, with 90 degree to turn on both sides
+    // We want max turn to be 25 degree, so approx between values 1222 and 1778
+    // so max deviation from 1500 is 278
+    pwm_set_chan_level(slice, channel, 1500+(value*(278/511)));
 }
 
 int main() {
@@ -127,6 +142,12 @@ int main() {
     pwm_set_enabled(sliceBottom, true);
     pwm_set_enabled(sliceLeft, true);
     
+    // Set servo's at standard position at value 1500
+    pwm_set_chan_level(sliceBottom, channelBottom, 1500);
+    pwm_set_chan_level(sliceTop,channelTop,1500);
+    pwm_set_chan_level(sliceLeft,channelLeft,1500);
+    pwm_set_chan_level(sliceRight,channelRight,1500);
+
     // Set the TX and RX pins of UART communication with Arduino
     gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
@@ -212,6 +233,10 @@ int main() {
         // LED is not connected yet
         // Stabilize is not implemented yet because of unconnected gyro
         setMotorSpeed(speed, sliceMotor, channelMotor);
+        turnServo(xJoystick, sliceBottom, channelBottom);
+        turnServo(xJoystick, sliceTop, channelTop);
+        turnServo(yJoystick, sliceLeft, channelLeft);
+        turnServo(yJoystick, sliceRight, channelRight);
     }
 }
 
