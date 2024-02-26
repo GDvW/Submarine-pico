@@ -1,5 +1,6 @@
 // Including stdio.h to enable use of printf, which outputs over USB 
 #include <stdio.h>
+#include <stdlib.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
@@ -33,11 +34,14 @@ const uint MOTOR_IN3_PIN = 13;
 const uint PWM_DIVIDER = 125;
 const uint PWM_WRAP_TIME = 20000; // 20 ms
 
+bool motorWasRunning = false;
+
 // Set motor speed based on speed value between -511 and 511
 void setMotorSpeed(int speed, uint slice, uint channel){
     if (speed == 0){
         gpio_put(MOTOR_IN3_PIN, 0);
         gpio_put(MOTOR_IN4_PIN, 0);
+        motorWasRunning = false;
     } else {
         if (speed > 0){
             gpio_put(MOTOR_IN3_PIN, 1);
@@ -47,6 +51,12 @@ void setMotorSpeed(int speed, uint slice, uint channel){
             gpio_put(MOTOR_IN4_PIN, 1);
         }
         //This PWM slice is configured to have a value between 1 and 1000
+        //Send a short pulse to wake controller
+        if (! motorWasRunning){
+            pwm_set_chan_level(slice, channel, 1000);
+            sleep_us(1);
+            motorWasRunning = true;
+        }
         pwm_set_chan_level(slice, channel, abs(speed)*(1000/511));
     }
     
