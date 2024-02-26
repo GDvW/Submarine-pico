@@ -8,6 +8,7 @@
 #include "hardware/pwm.h"
 #include "pico/binary_info.h"
 #include <string.h>
+#include <math.h>
  
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -74,7 +75,8 @@ void turnServo(int value, uint slice, uint channel){
     // 1500 is middle, with 90 degree to turn on both sides
     // We want max turn to be 25 degree, so approx between values 1222 and 1778
     // so max deviation from 1500 is 278
-    pwm_set_chan_level(slice, channel, 1500+(value*(278/511)));
+    int level = (int)round(1500.0+(value*(278.0/511.0)));
+    pwm_set_chan_level(slice, channel, level);
 }
 
 int main() {
@@ -183,14 +185,10 @@ int main() {
                 readMessage <<= (messageLengthReceived * 7);
                 // Calculate total message
                 messageReceived += readMessage;
-                //Decomment for debugging
-                //printf("received %d, was %d, %u of %llu\n", read, readMessage, messageLengthReceived, messageReceived);
                 // Add one to the messageLength
                 messageLengthReceived += 1;
                 // Check for stopBit
                 if (read & 0b00000001){
-                    //Decomment for debugging
-                    //printf("received total of %llu, length was %u\n", messageReceived, messageLengthReceived); 
                     //End of message, so continue program
                     break;
                 }
@@ -232,6 +230,7 @@ int main() {
         // Excecute commands given by controller
         // LED is not connected yet
         // Stabilize is not implemented yet because of unconnected gyro
+        // CamAngle servo is not yet connected
         setMotorSpeed(speed, sliceMotor, channelMotor);
         turnServo(xJoystick, sliceBottom, channelBottom);
         turnServo(xJoystick, sliceTop, channelTop);
