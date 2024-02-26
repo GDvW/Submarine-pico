@@ -33,6 +33,25 @@ const uint MOTOR_IN3_PIN = 13;
 const uint PWM_DIVIDER = 125;
 const uint PWM_WRAP_TIME = 20000; // 20 ms
 
+// Set motor speed based on speed value between -511 and 511
+void setMotorSpeed(int speed, uint slice, uint channel){
+    if (speed == 0){
+        gpio_put(MOTOR_IN3_PIN, 0);
+        gpio_put(MOTOR_IN4_PIN, 0);
+    } else {
+        if (speed > 0){
+            gpio_put(MOTOR_IN3_PIN, 1);
+            gpio_put(MOTOR_IN4_PIN, 0);
+        } else {
+            gpio_put(MOTOR_IN3_PIN, 0);
+            gpio_put(MOTOR_IN4_PIN, 1);
+        }
+        //This PWM slice is configured to have a value between 1 and 1000
+        pwm_set_chan_level(slice, channel, abs(speed)*(1000/511));
+    }
+    
+}
+
 int main() {
     bi_decl(bi_program_description("This is a the main binary of the submarine pico."));
     bi_decl(bi_1pin_with_name(LED_PIN, "On-board LED"));
@@ -178,6 +197,11 @@ int main() {
         } else{
             ledState = false;
         }
+
+        // Excecute commands given by controller
+        // LED is not connected yet
+        // Stabilize is not implemented yet because of unconnected gyro
+        setMotorSpeed(speed, sliceMotor, channelMotor);
     }
 }
 
