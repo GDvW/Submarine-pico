@@ -22,33 +22,84 @@ int main() {
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
     // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
     gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
 
-    // Use some the various UART functions to send out data
-    unsigned long long messageReceived = 0x000uLL;
-    uint messageLengthReceived = 0;
+    // Variables for UART receiving
+    unsigned long long messageReceived;
+    uint messageLengthReceived;
+
+    // Variables for controlling
+    bool ledState;
+    bool stabilizeState;
+    int speed;
+    int camAngle;
+    int xJoystick;
+    int yJoystick;
+
+    // Let user know loop starts
     gpio_put(LED_PIN, 1);
+
     while (true){
-        if (uart_is_readable(UART_ID)){
-            int read = uart_getc(UART_ID);
-            if (read & 0b00000001){
-                printf("received total of %llu, length was %u of %u\n", messageReceived, messageLengthReceived, MESSAGE_LENGTH);  
+        // Initialize message
+        messageReceived = 0x000uLL;
+        messageLengthReceived = 0;
+        // Get data
+        while (true){
+            // Read the UART for instructions
+            if (uart_is_readable(UART_ID)){
+                // Read UART
+                int read = uart_getc(UART_ID);
+                // Create the real message, without the stopbit at the end
+                unsigned long long readMessage = read >> 1;
+                // Set message at correct position. Message is transmitted from end to beginning
+                readMessage <<= (messageLengthReceived * 7);
+                // Calculate total message
+                messageReceived += readMessage;
+                //Decomment for debugging
+                //printf("received %d, was %d, %u of %llu\n", read, readMessage, messageLengthReceived, messageReceived);
+                // Add one to the messageLength
+                messageLengthReceived += 1;
+                // Check for stopBit
+                if (read & 0b00000001){
+                    //Decomment for debugging
+                    //printf("received total of %llu, length was %u\n", messageReceived, messageLengthReceived); 
+                    //End of message, so continue program
+                    break;
+                }
             }
-            messageLengthReceived += 1;
-            messageReceived += read;
-            printf("received %u", read);
-            printf("received %u of %llu\n", messageLengthReceived, messageReceived);
-            if (messageLengthReceived == MESSAGE_LENGTH){
-                printf("received %u of %llu\n", messageLengthReceived, messageReceived);
-                printf("received total of %llu, length was %u of %u\n", messageReceived, messageLengthReceived, MESSAGE_LENGTH);  
-                printf("received %u of %llu\n", messageLengthReceived, messageReceived);
-                //printf("received total of %llu, length was %d of %d\n", 0xFFFuLL, 8, 8    );  
-                messageLengthReceived = 0;
-                messageReceived = 0x000ULL;
-            }
-            messageReceived <<= 8;
+        }
+        //Decode message
+        yJoystick = messageReceived & 0b111111111;
+        messageReceived >>= 9;
+        if (messageReceived & 0b1){
+            yJoystick *= -1;
+        }
+        messageReceived >>= 1;
+        xJoystick = messageReceived & 0b111111111;
+        messageReceived >>= 9;
+        if (messageReceived & 0b1){
+            xJoystick *= -1;
+        }
+        messageReceived >>= 1;
+        camAngle = messageReceived & 0b1111111111;
+        messageReceived >>= 10;
+        speed = messageReceived & 0b111111111;
+        messageReceived >>= 9;
+        if (messageReceived & 0b1){
+            speed *= -1;
+        }
+        messageReceived >>= 1;
+        if (messageReceived & 0b1){
+            stabilizeState = true;
+        } else{
+            stabilizeState = false;
+        }
+        messageReceived >>= 1;
+        if (messageReceived & 0b1){
+            ledState = true;
+        } else{
+            ledState = false;
         }
     }
 }
