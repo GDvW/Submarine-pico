@@ -284,7 +284,7 @@ int main() {
         } else{
             ledState = false;
         }
-
+        gpio_put(LED_PIN, 0);
         // Excecute commands given by controller
         // LED is not connected yet
         // Stabilize is not implemented yet because of unconnected gyro
@@ -323,9 +323,10 @@ int main() {
         messageToSend2 += batteryVoltage;
         messageToSend2 <<= 1;
         messageToSend2 += waterPresent;
-        printf("1: %llu; 2: %u\n", messageToSend1, messageToSend2);
+
         writeData(messageToSend1, 64, false);
         writeData(messageToSend2, 21, true);
+        gpio_put(LED_PIN, 1);
     }
 }
 
