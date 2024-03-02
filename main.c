@@ -9,6 +9,7 @@
 #include "pico/binary_info.h"
 #include <string.h>
 #include <math.h>
+
  
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -77,6 +78,51 @@ void turnServo(int value, uint slice, uint channel){
     // so max deviation from 1500 is 278
     int level = (int)round(1500.0+(value*(278.0/511.0)));
     pwm_set_chan_level(slice, channel, level);
+}
+
+// Write data to serial1, i is the length of the data to send
+// appendStopByte is if the stopByte, indicating the end of the transmission, should be send at the end
+void writeData(long long data, int i, bool appendStopByte){
+  uint8_t *pointer = (uint8_t *)&data;
+  int mask;
+  unsigned int toSend = 0x00;
+  int stopBit = 0b1;
+  bool finalByte = false;
+  while (true){
+    // Create mask
+    // Mask is variable, because we have to send 64 bits one time
+    // so at the front we pad it with zero's to get length of 70
+    int modI = i % 7;
+    if (modI != 0){
+        mask = (1 << modI) - 1;
+        // Get the last 7 bits
+        toSend = data & mask;
+        // Shift data according to how many bits are needed
+        data >>= modI;
+        i -= modI;
+    } else {
+        mask = 0b1111111;
+        // Get the last 7 bits
+        toSend = data & mask;
+        // Shift 7 bits
+        data >>= 7;
+        i -= 7;
+    }
+    // Shift toSend 1 position to create space for stopbit
+    toSend <<= 1;
+    // Append stop bit if needed
+    if (i <= 0){
+      if (appendStopByte) {
+        toSend = toSend | stopBit;
+      }
+      finalByte = true;
+    }
+    uart_putc_raw(UART_ID, toSend);
+    printf("Send: %u of %d\n", toSend, i);
+    if (finalByte){
+      break;
+    }
+  }
 }
 
 int main() {
@@ -158,6 +204,11 @@ int main() {
     unsigned long long messageReceived;
     uint messageLengthReceived;
 
+    // Variables for UART sending
+    // Using two variables because data is too large for one variable
+    unsigned long long messageToSend1;
+    unsigned int messageToSend2;
+
     // Variables for controlling
     bool ledState;
     bool stabilizeState;
@@ -165,6 +216,14 @@ int main() {
     int camAngle;
     int xJoystick;
     int yJoystick;
+
+    // Variables for measuring
+    bool waterPresent;
+    unsigned short int batteryVoltage;
+    unsigned int depth;
+    unsigned short int gyroX;
+    unsigned short int gyroY;
+    unsigned short int gyroZ;
 
     // Let user know loop starts
     gpio_put(LED_PIN, 1);
@@ -236,6 +295,38 @@ int main() {
         turnServo(xJoystick, sliceTop, channelTop);
         turnServo(yJoystick, sliceLeft, channelLeft);
         turnServo(yJoystick, sliceRight, channelRight);
+
+        // Initialize messageToSend variables
+        messageToSend1 = 0x000uLL;
+        messageToSend2 = 0x00u;
+
+        // Measure things needed for feedback message to controller
+        // Variables are fixed now, but an appropriate method should be used to fill them
+        gyroX = 65534;
+        gyroY = 650;
+        gyroZ = 0;
+        depth = 16777214;
+        batteryVoltage = 4094;
+        waterPresent = true;
+
+        // Assemble message
+        messageToSend1 += gyroX;
+        messageToSend1 <<= 16;
+        messageToSend1 += gyroY;
+        messageToSend1 <<= 16;
+        messageToSend1 += gyroZ;
+        messageToSend1 <<= 16;
+        //Only add the first 16 bits of the depth, because otherwise we will have a too large long long
+        messageToSend1 += (depth >> 8);
+
+        messageToSend2 += (depth & 0b11111111);
+        messageToSend2 <<= 12;
+        messageToSend2 += batteryVoltage;
+        messageToSend2 <<= 1;
+        messageToSend2 += waterPresent;
+        printf("1: %llu; 2: %u\n", messageToSend1, messageToSend2);
+        writeData(messageToSend1, 64, false);
+        writeData(messageToSend2, 21, true);
     }
 }
 
