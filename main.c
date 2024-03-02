@@ -6,6 +6,7 @@
 #include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
+#include "hardware/adc.h"
 #include "pico/binary_info.h"
 #include <string.h>
 #include <math.h>
@@ -26,6 +27,9 @@ const uint RUDDER_TOP_PIN = 18;
 const uint RUDDER_RIGHT_PIN = 19;
 const uint RUDDER_BOTTOM_PIN = 20;
 const uint RUDDER_LEFT_PIN = 21;
+
+const uint BATTERY_VOLTAGE_PIN = 26;
+
 
 // Motor driver pins
 const uint MOTOR_PWM_PIN = 15;
@@ -133,9 +137,16 @@ int main() {
     bi_decl(bi_1pin_with_name(RUDDER_LEFT_PIN, "Pin for the rudder at the left position."));
     bi_decl(bi_1pin_with_name(MOTOR_PWM_PIN, "Pin connecting to the PWM pin of the motor driver."));
     bi_decl(bi_1pin_with_name(MOTOR_IN4_PIN, "Pin connecting to IN4 on the motor driver."));
-    bi_decl(bi_1pin_with_name(MOTOR_IN3_PIN, "Pin connecting to IN3 on the motor driver. "));
+    bi_decl(bi_1pin_with_name(MOTOR_IN3_PIN, "Pin connecting to IN3 on the motor driver."));
+    bi_decl(bi_1pin_with_name(BATTERY_VOLTAGE_PIN, "Pin connecting to voltage divider for battery voltage measurements."));
 
+    // Initialize printf
     stdio_init_all();
+
+    // Initialize ADC for battery measurements
+    adc_init();
+    adc_gpio_init(BATTERY_VOLTAGE_PIN);
+
 
     // Set up our UART with the required speed.
     uart_init(UART_ID, BAUD_RATE);
@@ -305,7 +316,8 @@ int main() {
         gyroY = 650;
         gyroZ = 0;
         depth = 16777214;
-        batteryVoltage = 4094;
+        adc_select_input(BATTERY_VOLTAGE_PIN - 26);
+        batteryVoltage = adc_read();
         waterPresent = true;
 
         // Assemble message
