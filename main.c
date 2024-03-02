@@ -91,15 +91,14 @@ void writeData(long long data, int i, bool appendStopByte){
   while (true){
     // Create mask
     // Mask is variable, because we have to send 64 bits one time
-    // so at the front we pad it with zero's to get length of 70
-    int modI = i % 7;
-    if (modI != 0){
-        mask = (1 << modI) - 1;
+    // so at the back we pad it with zero's to get length of 70
+    if (i - 7 < 0){
+        mask = (1 << i) - 1;
         // Get the last 7 bits
         toSend = data & mask;
         // Shift data according to how many bits are needed
-        data >>= modI;
-        i -= modI;
+        data >>= i;
+        i = 0;
     } else {
         mask = 0b1111111;
         // Get the last 7 bits
