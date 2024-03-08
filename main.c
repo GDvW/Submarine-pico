@@ -242,6 +242,7 @@ int main() {
         // Initialize message
         messageReceived = 0x000uLL;
         messageLengthReceived = 0;
+        printf("get data\n");
         // Get data
         while (true){
             // Read the UART for instructions
@@ -263,6 +264,7 @@ int main() {
                 }
             }
         }
+        printf("decoding...\n");
         //Decode message
         yJoystick = messageReceived & 0b111111111;
         messageReceived >>= 9;
@@ -295,6 +297,7 @@ int main() {
         } else{
             ledState = false;
         }
+        printf("executing y: %d; x: %d; cam: %d; speed: %d; stab: %d; led: %d\n", yJoystick, xJoystick, camAngle, speed, stabilizeState, ledState);
         gpio_put(LED_PIN, 0);
         // Excecute commands given by controller
         // LED is not connected yet
@@ -305,6 +308,7 @@ int main() {
         turnServo(xJoystick, sliceTop, channelTop);
         turnServo(yJoystick, sliceLeft, channelLeft);
         turnServo(yJoystick, sliceRight, channelRight);
+        printf("getting data to send\n");
 
         // Initialize messageToSend variables
         messageToSend1 = 0x000uLL;
@@ -316,9 +320,13 @@ int main() {
         gyroY = 650;
         gyroZ = 0;
         depth = 16777214;
-        adc_select_input(BATTERY_VOLTAGE_PIN - 26);
-        batteryVoltage = adc_read();
+        printf("starting ADC\n");
+        //adc_select_input(BATTERY_VOLTAGE_PIN - 26);
+        //batteryVoltage = adc_read();
+        batteryVoltage = 0;
+        printf("end ADC\n");
         waterPresent = true;
+        printf("Assembling message to send \n");
 
         // Assemble message
         messageToSend1 += gyroX;
@@ -335,9 +343,11 @@ int main() {
         messageToSend2 += batteryVoltage;
         messageToSend2 <<= 1;
         messageToSend2 += waterPresent;
+        printf("Sending message, gx: %hu; gy: %hu; gz: %hu; depth: %u, bV: %hu; wp: %d\n", gyroX, gyroY, gyroZ, depth, batteryVoltage, waterPresent);
 
         writeData(messageToSend1, 64, false);
         writeData(messageToSend2, 21, true);
+        printf("end send \n0");
         gpio_put(LED_PIN, 1);
     }
 }
